@@ -53,7 +53,7 @@
           <p class="input-hint" id="input-hint">Enter 키로도 후보를 추가할 수 있어요.</p>
 
           <div class="list-toolbar">
-            <span>후보를 2개 이상 추가해 주세요.</span>
+            <span>기본 비율 1 · 1~1000 조절</span>
             <button class="text-button" id="clear-button" type="button" disabled>
               전체 삭제
             </button>
@@ -95,14 +95,15 @@
             후보를 2개 이상 추가하면 돌릴 수 있어요.
           </p>
           <button class="spin-button" id="spin-button" type="button" disabled>
-            <span aria-hidden="true">↻</span> 룰렛 돌리기
+            <span id="spin-button-icon" aria-hidden="true">↻</span>
+            <span class="spin-button-label" id="spin-button-label">룰렛 돌리기</span>
           </button>
           <p class="result-message" id="result-message" aria-live="polite"></p>
         </section>
       </section>
 
       <footer class="site-footer">
-        <span aria-hidden="true">✳</span> 결과는 모두에게 공평한 무작위 추첨이에요.
+        <span aria-hidden="true">✳</span> 비율이 높을수록 당첨 확률이 높아져요.
       </footer>
     </main>
 

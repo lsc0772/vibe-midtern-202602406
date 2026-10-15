@@ -267,8 +267,8 @@ a:focus-visible {
   display: flex;
   min-height: 42px;
   align-items: center;
-  gap: 10px;
-  padding: 6px 9px 6px 11px;
+  gap: 8px;
+  padding: 6px 7px 6px 9px;
   border: 1px solid #edf0ec;
   border-radius: 10px;
   background: #fff;
@@ -290,6 +290,52 @@ a:focus-visible {
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.option-settings {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.weight-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #89938b;
+  font-size: 10px;
+}
+
+.weight-input {
+  width: 48px;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid #e2e9e2;
+  border-radius: 7px;
+  background: #f9fbf8;
+  color: #3f5f4b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.weight-input:focus {
+  border-color: #8aac96;
+  outline: 0;
+  box-shadow: 0 0 0 2px rgb(72 142 111 / 12%);
+}
+
+.weight-input:disabled {
+  opacity: 0.55;
+}
+
+.probability {
+  min-width: 42px;
+  color: #53725e;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
 }
 
 .remove-button {
@@ -424,10 +470,14 @@ a:focus-visible {
   cursor: not-allowed;
 }
 
-.spin-button span {
+.spin-button > span:first-child {
   margin-right: 5px;
   font-size: 17px;
   vertical-align: -1px;
+}
+
+.spin-button-label {
+  font-size: 14px;
 }
 
 .result-message {

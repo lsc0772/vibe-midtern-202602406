@@ -3,6 +3,8 @@
 (() => {
   const STORAGE_KEY = "oneul-roulette-options";
   const TAU = Math.PI * 2;
+  const SPIN_SPEED = TAU / 900;
+  const MAX_WEIGHT = 1000;
   const COLORS = [
     "#dcebd9",
     "#f4dfc6",
@@ -25,6 +27,8 @@
   const emptyMessage = document.querySelector("#empty-message");
   const clearButton = document.querySelector("#clear-button");
   const spinButton = document.querySelector("#spin-button");
+  const spinButtonIcon = document.querySelector("#spin-button-icon");
+  const spinButtonLabel = document.querySelector("#spin-button-label");
   const wheelHint = document.querySelector("#wheel-hint");
   const resultMessage = document.querySelector("#result-message");
   const storageNote = document.querySelector("#storage-note");
@@ -34,7 +38,8 @@
 
   let options = loadOptions();
   let rotation = 0;
-  let isSpinning = false;
+  let spinState = "idle";
+  let lastFrameTime = 0;
   let toastTimer;
 
   function loadOptions() {
@@ -48,9 +53,23 @@
         return [];
       }
 
-      return parsed.filter(
-        (option) => typeof option === "string" && option.trim().length > 0,
-      );
+      return parsed.flatMap((option) => {
+        if (typeof option === "string" && option.trim()) {
+          return [{ name: option.trim(), weight: 1 }];
+        }
+        if (
+          option &&
+          typeof option.name === "string" &&
+          option.name.trim()
+        ) {
+          const weight =
+            Number.isInteger(option.weight) && option.weight >= 1
+              ? Math.min(option.weight, MAX_WEIGHT)
+              : 1;
+          return [{ name: option.name.trim(), weight }];
+        }
+        return [];
+      });
     } catch {
       storageNote.textContent = "저장된 후보를 불러오지 못했어요. 현재 목록은 저장되지 않을 수 있어요.";
       return [];
@@ -68,6 +87,18 @@
 
   function colorFor(index) {
     return COLORS[index % COLORS.length];
+  }
+
+  function totalWeight() {
+    return options.reduce((total, option) => total + option.weight, 0);
+  }
+
+  function formatProbability(weight) {
+    const percentage = (weight / totalWeight()) * 100;
+    if (percentage > 0 && percentage < 0.01) return "<0.01%";
+    return `${new Intl.NumberFormat("ko-KR", {
+      maximumFractionDigits: 2,
+    }).format(percentage)}%`;
   }
 
   function drawWheel() {
@@ -99,9 +130,12 @@
       return;
     }
 
-    const slice = TAU / count;
+    const weightSum = totalWeight();
+    let cumulativeWeight = 0;
     for (let index = 0; index < count; index += 1) {
-      const start = -Math.PI / 2 + rotation + index * slice;
+      const option = options[index];
+      const slice = (option.weight / weightSum) * TAU;
+      const start = -Math.PI / 2 + rotation + (cumulativeWeight / weightSum) * TAU;
       const end = start + slice;
 
       context.beginPath();
@@ -110,23 +144,26 @@
       context.closePath();
       context.fillStyle = colorFor(index);
       context.fill();
-      context.lineWidth = 3;
+      context.lineWidth = Math.max(0.5, Math.min(3, radius * slice * 0.12));
       context.strokeStyle = "#fff";
       context.stroke();
 
-      const middle = start + slice / 2;
-      context.save();
-      context.rotate(middle);
-      context.translate(radius * 0.62, 0);
-      if (Math.cos(middle) < 0) context.rotate(Math.PI);
-      context.fillStyle = TEXT_COLORS[index % TEXT_COLORS.length];
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      const maxTextWidth = Math.max(48, radius * Math.min(0.75, slice * 0.8));
-      const fontSize = Math.max(13, Math.min(22, 15 + (count <= 4 ? 2 : 0)));
-      context.font = `700 ${fontSize}px "Noto Sans KR", sans-serif`;
-      context.fillText(options[index], 0, 0, maxTextWidth);
-      context.restore();
+      if (slice >= 0.12) {
+        const middle = start + slice / 2;
+        context.save();
+        context.rotate(middle);
+        context.translate(radius * 0.62, 0);
+        if (Math.cos(middle) < 0) context.rotate(Math.PI);
+        context.fillStyle = TEXT_COLORS[index % TEXT_COLORS.length];
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        const maxTextWidth = Math.max(32, radius * Math.min(0.75, slice * 0.8));
+        const fontSize = Math.max(11, Math.min(22, 15 + (count <= 4 ? 2 : 0)));
+        context.font = `700 ${fontSize}px "Noto Sans KR", sans-serif`;
+        context.fillText(option.name, 0, 0, maxTextWidth);
+        context.restore();
+      }
+      cumulativeWeight += option.weight;
     }
 
     context.beginPath();
@@ -138,6 +175,7 @@
   }
 
   function updateInterface() {
+    const isActive = spinState !== "idle";
     optionList.replaceChildren();
     options.forEach((option, index) => {
       const row = document.createElement("li");
@@ -150,32 +188,81 @@
 
       const name = document.createElement("span");
       name.className = "option-name";
-      name.textContent = option;
+      name.textContent = option.name;
+
+      const settings = document.createElement("span");
+      settings.className = "option-settings";
+
+      const weightLabel = document.createElement("label");
+      weightLabel.className = "weight-control";
+      weightLabel.textContent = "비율";
+
+      const weightInput = document.createElement("input");
+      weightInput.className = "weight-input";
+      weightInput.type = "number";
+      weightInput.min = "1";
+      weightInput.max = String(MAX_WEIGHT);
+      weightInput.step = "1";
+      weightInput.value = String(option.weight);
+      weightInput.disabled = isActive;
+      weightInput.setAttribute("aria-label", `${option.name} 당첨 비율`);
+      weightInput.addEventListener("change", () => {
+        const newWeight = Number(weightInput.value);
+        if (!Number.isInteger(newWeight) || newWeight < 1 || newWeight > MAX_WEIGHT) {
+          showToast(`비율은 1부터 ${MAX_WEIGHT}까지 입력해 주세요.`);
+          updateInterface();
+          return;
+        }
+        option.weight = newWeight;
+        resultMessage.textContent = "";
+        resultMessage.classList.remove("is-result");
+        saveOptions();
+        updateInterface();
+      });
+      weightLabel.append(weightInput);
+
+      const probability = document.createElement("span");
+      probability.className = "probability";
+      probability.textContent = formatProbability(option.weight);
+      probability.setAttribute(
+        "aria-label",
+        `${option.name} 당첨 확률 ${probability.textContent}`,
+      );
+      settings.append(weightLabel, probability);
 
       const removeButton = document.createElement("button");
       removeButton.className = "remove-button";
       removeButton.type = "button";
       removeButton.textContent = "×";
-      removeButton.disabled = isSpinning;
-      removeButton.setAttribute("aria-label", `${option} 후보 삭제`);
+      removeButton.disabled = isActive;
+      removeButton.setAttribute("aria-label", `${option.name} 후보 삭제`);
       removeButton.addEventListener("click", () => removeOption(index));
 
-      row.append(dot, name, removeButton);
+      row.append(dot, name, settings, removeButton);
       optionList.append(row);
     });
 
     optionCount.textContent = `${options.length}개`;
-    input.disabled = isSpinning;
-    addButton.disabled = isSpinning;
+    input.disabled = isActive;
+    addButton.disabled = isActive;
     emptyMessage.hidden = options.length > 0;
-    clearButton.disabled = options.length === 0 || isSpinning;
-    spinButton.disabled = options.length < 2 || isSpinning;
+    clearButton.disabled = options.length === 0 || isActive;
+    spinButton.disabled = options.length < 2 || spinState === "stopping";
+    spinButtonLabel.textContent =
+      spinState === "spinning"
+        ? "룰렛 멈추기"
+        : spinState === "stopping"
+          ? "멈추는 중..."
+          : "룰렛 돌리기";
+    spinButtonIcon.textContent = spinState === "spinning" ? "■" : "↻";
     wheelHint.textContent =
       options.length < 2
         ? "후보를 2개 이상 추가하면 돌릴 수 있어요."
-        : isSpinning
-          ? "두근두근, 결과를 기다려 주세요!"
-          : "버튼을 눌러 오늘의 선택을 확인해 보세요.";
+        : spinState === "spinning"
+          ? "원하는 순간에 ‘룰렛 멈추기’를 눌러주세요."
+          : spinState === "stopping"
+            ? "천천히 멈추고 있어요. 결과를 기다려 주세요!"
+            : "버튼을 눌러 룰렛을 시작해 보세요.";
     drawWheel();
   }
 
@@ -189,7 +276,7 @@
   }
 
   function addOption(value) {
-    if (isSpinning) return;
+    if (spinState !== "idle") return;
     const option = value.trim();
     if (!option) {
       showToast("후보 내용을 입력해 주세요.");
@@ -198,14 +285,17 @@
     }
 
     if (
-      options.some((existingOption) => existingOption.toLocaleLowerCase() === option.toLocaleLowerCase())
+      options.some(
+        (existingOption) =>
+          existingOption.name.toLocaleLowerCase() === option.toLocaleLowerCase(),
+      )
     ) {
       showToast("이미 목록에 있는 후보예요.");
       input.focus();
       return;
     }
 
-    options.push(option);
+    options.push({ name: option, weight: 1 });
     resultMessage.textContent = "";
     resultMessage.classList.remove("is-result");
     saveOptions();
@@ -215,7 +305,7 @@
   }
 
   function removeOption(index) {
-    if (isSpinning) return;
+    if (spinState !== "idle") return;
     options.splice(index, 1);
     resultMessage.textContent = "";
     resultMessage.classList.remove("is-result");
@@ -223,49 +313,83 @@
     updateInterface();
   }
 
-  function randomIndex(length) {
+  function randomIntegerBelow(upperBound) {
     if (window.crypto && window.crypto.getRandomValues) {
-      const randomValues = new Uint32Array(1);
-      const range = 0x100000000;
-      const limit = range - (range % length);
+      const range = 0x20000000000000;
+      const limit = range - (range % upperBound);
+      const randomValues = new Uint32Array(2);
       let value;
       do {
         window.crypto.getRandomValues(randomValues);
-        value = randomValues[0];
+        value = (randomValues[0] & 0x1fffff) * 0x100000000 + randomValues[1];
       } while (value >= limit);
-      return value % length;
+      return value % upperBound;
     }
 
-    return Math.floor(Math.random() * length);
+    return Math.floor(Math.random() * upperBound);
+  }
+
+  function selectWeightedIndex() {
+    let pick = randomIntegerBelow(totalWeight());
+    for (let index = 0; index < options.length; index += 1) {
+      pick -= options[index].weight;
+      if (pick < 0) return index;
+    }
+    return options.length - 1;
   }
 
   function normalizeAngle(angle) {
     return ((angle % TAU) + TAU) % TAU;
   }
 
-  function spinWheel() {
-    if (isSpinning || options.length < 2) return;
+  function startWheel() {
+    if (spinState !== "idle" || options.length < 2) return;
 
-    const winnerIndex = randomIndex(options.length);
-    const slice = TAU / options.length;
-    const desiredRotation = normalizeAngle(-(winnerIndex + 0.5) * slice);
-    const currentRotation = normalizeAngle(rotation);
-    const alignment = normalizeAngle(desiredRotation - currentRotation);
-    const duration = 4600;
-    const fullTurns = 5 + randomIndex(3);
-    const startRotation = rotation;
-    const targetRotation = rotation + fullTurns * TAU + alignment;
-    const startTime = performance.now();
-
-    isSpinning = true;
+    spinState = "spinning";
+    lastFrameTime = 0;
     resultMessage.textContent = "";
     resultMessage.classList.remove("is-result");
+    updateInterface();
+    window.requestAnimationFrame(animateSpin);
+  }
+
+  function animateSpin(now) {
+    if (spinState !== "spinning") return;
+
+    if (lastFrameTime !== 0) {
+      const elapsed = Math.min(now - lastFrameTime, 50);
+      rotation += SPIN_SPEED * elapsed;
+    }
+    lastFrameTime = now;
+    drawWheel();
+    window.requestAnimationFrame(animateSpin);
+  }
+
+  function stopWheel() {
+    if (spinState !== "spinning") return;
+
+    const winnerIndex = selectWeightedIndex();
+    const weightSum = totalWeight();
+    const precedingWeight = options
+      .slice(0, winnerIndex)
+      .reduce((total, option) => total + option.weight, 0);
+    const desiredRotation = normalizeAngle(
+      -((precedingWeight + options[winnerIndex].weight / 2) / weightSum) * TAU,
+    );
+    const currentRotation = normalizeAngle(rotation);
+    const alignment = normalizeAngle(desiredRotation - currentRotation);
+    const startRotation = rotation;
+    const stopDistance = 3 * TAU + alignment;
+    const duration = (2 * stopDistance) / SPIN_SPEED;
+    const startTime = performance.now();
+
+    spinState = "stopping";
     updateInterface();
 
     function animate(now) {
       const progress = Math.min((now - startTime) / duration, 1);
-      const easedProgress = 1 - Math.pow(1 - progress, 4);
-      rotation = startRotation + (targetRotation - startRotation) * easedProgress;
+      const deceleratedProgress = 2 * progress - progress * progress;
+      rotation = startRotation + stopDistance * deceleratedProgress;
       drawWheel();
 
       if (progress < 1) {
@@ -273,9 +397,9 @@
         return;
       }
 
-      rotation = normalizeAngle(targetRotation);
-      isSpinning = false;
-      resultMessage.textContent = `오늘의 선택은 ${options[winnerIndex]}!`;
+      rotation = normalizeAngle(startRotation + stopDistance);
+      spinState = "idle";
+      resultMessage.textContent = `오늘의 선택은 ${options[winnerIndex].name}!`;
       resultMessage.classList.remove("is-result");
       void resultMessage.offsetWidth;
       resultMessage.classList.add("is-result");
@@ -285,13 +409,21 @@
     window.requestAnimationFrame(animate);
   }
 
+  function handleSpinButton() {
+    if (spinState === "spinning") {
+      stopWheel();
+      return;
+    }
+    startWheel();
+  }
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     addOption(input.value);
   });
 
   clearButton.addEventListener("click", () => {
-    if (isSpinning || options.length === 0) return;
+    if (spinState !== "idle" || options.length === 0) return;
     options = [];
     resultMessage.textContent = "";
     resultMessage.classList.remove("is-result");
@@ -299,7 +431,7 @@
     updateInterface();
   });
 
-  spinButton.addEventListener("click", spinWheel);
+  spinButton.addEventListener("click", handleSpinButton);
 
   updateInterface();
 })();
