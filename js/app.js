@@ -3,7 +3,7 @@
 (() => {
   const STORAGE_KEY = "oneul-roulette-options";
   const TAU = Math.PI * 2;
-  const SPIN_SPEED = TAU / 450;
+  const SPIN_SPEED = TAU / 150;
   const MAX_WEIGHT = 1000;
   const COLORS = [
     "#dcebd9",
@@ -73,7 +73,7 @@
       "aria-label",
       isDark ? "라이트 모드로 전환" : "다크 모드로 전환",
     );
-    themeIcon.textContent = isDark ? "☀" : "☾";
+    themeIcon.textContent = isDark ? "☀️" : "🌙";
     themeLabel.textContent = isDark ? "라이트 모드" : "다크 모드";
   }
 
@@ -480,8 +480,8 @@
     const currentRotation = normalizeAngle(rotation);
     const alignment = normalizeAngle(desiredRotation - currentRotation);
     const startRotation = rotation;
-    const stopDistance = 3 * TAU + alignment;
-    const duration = (2 * stopDistance) / SPIN_SPEED;
+    const stopDistance = 14 * TAU + alignment;
+    const duration = (4 * stopDistance) / SPIN_SPEED;
     const startTime = performance.now();
 
     spinState = "stopping";
@@ -489,7 +489,7 @@
 
     function animate(now) {
       const progress = Math.min((now - startTime) / duration, 1);
-      const deceleratedProgress = 2 * progress - progress * progress;
+      const deceleratedProgress = 1 - Math.pow(1 - progress, 4);
       rotation = startRotation + stopDistance * deceleratedProgress;
       drawWheel();
 

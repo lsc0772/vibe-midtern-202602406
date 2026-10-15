@@ -80,6 +80,9 @@
 body {
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
   margin: 0;
   background:
     radial-gradient(ellipse at 88% 4%, rgb(221 245 220 / 65%), transparent 27rem),
@@ -126,6 +129,7 @@ a:focus-visible {
   display: inline-flex;
   gap: 10px;
   align-items: center;
+  white-space: nowrap;
   color: var(--ink);
   font-size: 17px;
   font-weight: 800;
@@ -843,6 +847,7 @@ a:focus-visible {
   .brand {
     gap: 6px;
     font-size: 13px;
+    flex-shrink: 0;
   }
 
   .brand-mark {
@@ -856,14 +861,19 @@ a:focus-visible {
   }
 
   .header-actions {
-    gap: 6px;
+    gap: 4px;
+    flex-shrink: 0;
   }
 
   .theme-toggle {
     min-height: 31px;
     gap: 4px;
-    padding: 0 7px;
+    padding: 0 6px;
     font-size: 10px;
+  }
+
+  .theme-toggle #theme-label {
+    display: none;
   }
 
   .view-mode-group {
@@ -873,7 +883,9 @@ a:focus-visible {
 
   .view-mode-button {
     min-height: 26px;
-    padding: 0 6px;
+    gap: 3px;
+    padding: 0 5px;
+    font-size: 10px;
   }
 
   .intro {
@@ -921,13 +933,92 @@ a:focus-visible {
   grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
 }
 
+.app-shell[data-view-mode="desktop"] {
+  display: grid;
+  width: min(100vw, 177.7778dvh);
+  height: min(100dvh, 56.25vw);
+  aspect-ratio: 16 / 9;
+  grid-template-rows: 9% 21% minmax(0, 1fr) 5%;
+  overflow: hidden;
+}
+
 .app-shell[data-view-mode="desktop"] .options-panel,
 .app-shell[data-view-mode="desktop"] .wheel-panel {
+  min-height: 0;
   order: initial;
+}
+
+.app-shell[data-view-mode="desktop"] .site-header {
+  height: auto;
+}
+
+.app-shell[data-view-mode="desktop"] .intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2vw 0;
+}
+
+.app-shell[data-view-mode="desktop"] .intro h1 {
+  font-size: clamp(18px, 2.65vw, 42px);
+}
+
+.app-shell[data-view-mode="desktop"] .intro .eyebrow {
+  margin-bottom: clamp(3px, 0.5vw, 8px);
+  font-size: clamp(7px, 0.8vw, 11px);
+}
+
+.app-shell[data-view-mode="desktop"] .intro > p:last-child {
+  margin-top: clamp(4px, 0.8vw, 13px);
+  font-size: clamp(9px, 1.1vw, 16px);
+}
+
+.app-shell[data-view-mode="desktop"] .choice-layout {
+  min-height: 0;
+}
+
+.app-shell[data-view-mode="desktop"] .options-panel {
+  overflow: auto;
+  padding: clamp(10px, 1.4vw, 25px);
+}
+
+.app-shell[data-view-mode="desktop"] .wheel-panel {
+  overflow: hidden;
+  padding: clamp(10px, 1.4vw, 22px);
+}
+
+.app-shell[data-view-mode="desktop"] .wheel-stage {
+  width: min(100%, 39dvh, 35vw);
+  margin-top: clamp(25px, 3.1vw, 42px);
+}
+
+.app-shell[data-view-mode="desktop"] .wheel-hint {
+  margin: clamp(3px, 0.5vw, 7px) 0;
+  font-size: clamp(8px, 0.85vw, 11px);
+}
+
+.app-shell[data-view-mode="desktop"] .spin-button {
+  width: min(100%, 280px);
+  height: clamp(30px, 3.4vw, 48px);
+}
+
+.app-shell[data-view-mode="desktop"] .result-message {
+  margin-top: clamp(3px, 0.5vw, 8px);
+  font-size: clamp(10px, 1.1vw, 14px);
+}
+
+.app-shell[data-view-mode="desktop"] .site-footer {
+  align-items: center;
+  padding: 0;
 }
 
 .app-shell[data-view-mode="mobile"] {
   width: min(460px, calc(100% - 28px));
+  height: auto;
+  aspect-ratio: auto;
+  display: block;
+  overflow: visible;
 }
 
 .app-shell[data-view-mode="mobile"] .choice-layout {
@@ -944,10 +1035,19 @@ a:focus-visible {
   order: 0;
 }
 
-@media (max-width: 800px) {
-  .app-shell[data-view-mode="desktop"] .choice-layout {
-    grid-template-columns: 1fr;
-  }
+.app-shell[data-view-mode="mobile"] .header-note,
+.app-shell[data-view-mode="mobile"] .theme-toggle #theme-label {
+  display: none;
+}
+
+.app-shell[data-view-mode="mobile"] .header-actions {
+  gap: 6px;
+}
+
+.app-shell[data-view-mode="mobile"] .theme-toggle {
+  min-height: 31px;
+  gap: 4px;
+  padding: 0 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {
