@@ -7,23 +7,57 @@
       name="description"
       content="고민되는 선택을 원판 룰렛으로 가볍게 결정해 보세요."
     />
-    <title>오늘은 룰렛</title>
+    <title>Today's meal</title>
     <link rel="stylesheet" href="css/style.css" />
     <script src="js/app.js" defer></script>
   </head>
   <body>
     <main class="app-shell">
       <header class="site-header">
-        <a class="brand" href="./" aria-label="오늘은 룰렛 홈">
+        <a class="brand" href="./" aria-label="Today's meal 홈">
           <span class="brand-mark" aria-hidden="true">↻</span>
-          <span>오늘은 룰렛</span>
+          <span>Today's meal</span>
         </a>
-        <p class="header-note">고민은 잠시 멈추고, 룰렛에 맡겨봐요!</p>
+        <div class="header-actions">
+          <p class="header-note">고민은 잠시 멈추고, 룰렛에 맡겨봐요!</p>
+          <button
+            class="theme-toggle"
+            id="theme-toggle"
+            type="button"
+            aria-label="다크 모드로 전환"
+            aria-pressed="false"
+          >
+            <span id="theme-icon" aria-hidden="true">☾</span>
+            <span id="theme-label">다크 모드</span>
+          </button>
+          <div class="view-mode-group" role="group" aria-label="화면 보기 모드">
+            <button
+              class="view-mode-button"
+              type="button"
+              data-view-mode="desktop"
+              aria-pressed="true"
+              aria-label="데스크톱 화면 배치"
+            >
+              <span aria-hidden="true">▣</span>
+              <span class="mode-label">데스크톱</span>
+            </button>
+            <button
+              class="view-mode-button"
+              type="button"
+              data-view-mode="mobile"
+              aria-pressed="false"
+              aria-label="모바일 화면 배치"
+            >
+              <span aria-hidden="true">▯</span>
+              <span class="mode-label">모바일</span>
+            </button>
+          </div>
+        </div>
       </header>
 
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">MAKE A CHOICE</p>
-        <h1 id="page-title">오늘 뭐 할지<br class="mobile-break" /> 정해볼까요?</h1>
+        <h1 id="page-title">오늘 뭐 먹을지<br class="mobile-break" /> 정해볼까요?</h1>
         <p>후보를 적고 룰렛을 돌리면 오늘의 선택이 정해져요.</p>
       </section>
 
@@ -73,13 +107,17 @@
         <section class="panel wheel-panel" aria-labelledby="wheel-title">
           <div class="panel-heading wheel-heading">
             <div>
-              <p class="eyebrow">THE LUCKY WHEEL</p>
-              <h2 id="wheel-title">운명의 원판</h2>
+              <p class="eyebrow">SPIN TO DECIDE</p>
+              <h2 class="visually-hidden" id="wheel-title">룰렛</h2>
             </div>
             <span class="wheel-sparkle" aria-hidden="true">✦</span>
           </div>
 
           <div class="wheel-stage">
+            <div class="pointer-status" aria-hidden="true">
+              <span class="pointer-caption">현재 후보</span>
+              <span class="pointer-option" id="pointer-option">후보 대기 중</span>
+            </div>
             <span class="wheel-pointer" aria-hidden="true"></span>
             <canvas
               id="wheel-canvas"
@@ -89,6 +127,10 @@
               aria-label="추첨 후보가 표시된 룰렛 원판"
             ></canvas>
             <span class="wheel-center" aria-hidden="true"></span>
+            <div class="wheel-result-overlay" id="wheel-result-overlay" aria-hidden="true" hidden>
+              <span>오늘의 선택</span>
+              <strong id="wheel-result-name"></strong>
+            </div>
           </div>
 
           <p class="wheel-hint" id="wheel-hint">

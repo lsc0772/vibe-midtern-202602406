@@ -3,7 +3,7 @@
 (() => {
   const STORAGE_KEY = "oneul-roulette-options";
   const TAU = Math.PI * 2;
-  const SPIN_SPEED = TAU / 900;
+  const SPIN_SPEED = TAU / 450;
   const MAX_WEIGHT = 1000;
   const COLORS = [
     "#dcebd9",
@@ -18,6 +18,19 @@
     "#e8e1d1",
   ];
   const TEXT_COLORS = ["#355644", "#735638", "#365961", "#7a4d48", "#5d4d76"];
+  const DARK_COLORS = [
+    "#526f5c",
+    "#81664a",
+    "#4f7180",
+    "#805954",
+    "#6d5d82",
+    "#786e43",
+    "#477464",
+    "#815b73",
+    "#586b8a",
+    "#6c6554",
+  ];
+  const DARK_TEXT_COLORS = ["#f1f7f2", "#fff2df", "#edf8fa", "#ffefeb", "#f5eeff"];
 
   const form = document.querySelector("#option-form");
   const input = document.querySelector("#option-input");
@@ -32,6 +45,13 @@
   const wheelHint = document.querySelector("#wheel-hint");
   const resultMessage = document.querySelector("#result-message");
   const storageNote = document.querySelector("#storage-note");
+  const themeToggle = document.querySelector("#theme-toggle");
+  const themeIcon = document.querySelector("#theme-icon");
+  const themeLabel = document.querySelector("#theme-label");
+  const viewModeButtons = document.querySelectorAll(".view-mode-button");
+  const pointerOption = document.querySelector("#pointer-option");
+  const wheelResultOverlay = document.querySelector("#wheel-result-overlay");
+  const wheelResultName = document.querySelector("#wheel-result-name");
   const canvas = document.querySelector("#wheel-canvas");
   const context = canvas.getContext("2d");
   const toast = document.querySelector("#toast");
@@ -41,6 +61,50 @@
   let spinState = "idle";
   let lastFrameTime = 0;
   let toastTimer;
+  let resultOverlayTimer;
+  let resultOverlayHideTimer;
+
+  function applyTheme(theme) {
+    const isDark = theme === "dark";
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+    drawWheel();
+    themeToggle.setAttribute("aria-pressed", String(isDark));
+    themeToggle.setAttribute(
+      "aria-label",
+      isDark ? "라이트 모드로 전환" : "다크 모드로 전환",
+    );
+    themeIcon.textContent = isDark ? "☀" : "☾";
+    themeLabel.textContent = isDark ? "라이트 모드" : "다크 모드";
+  }
+
+  function loadTheme() {
+    try {
+      return window.localStorage.getItem("todays-meal-theme") === "dark"
+        ? "dark"
+        : "light";
+    } catch {
+      return "light";
+    }
+  }
+
+  function applyViewMode(mode) {
+    const selectedMode = mode === "mobile" ? "mobile" : "desktop";
+    document.querySelector(".app-shell").dataset.viewMode = selectedMode;
+    viewModeButtons.forEach((button) => {
+      const isSelected = button.dataset.viewMode === selectedMode;
+      button.setAttribute("aria-pressed", String(isSelected));
+    });
+  }
+
+  function loadViewMode() {
+    try {
+      const savedMode = window.localStorage.getItem("todays-meal-view-mode");
+      if (savedMode === "mobile" || savedMode === "desktop") return savedMode;
+    } catch {
+      return window.matchMedia("(max-width: 800px)").matches ? "mobile" : "desktop";
+    }
+    return window.matchMedia("(max-width: 800px)").matches ? "mobile" : "desktop";
+  }
 
   function loadOptions() {
     try {
@@ -86,7 +150,15 @@
   }
 
   function colorFor(index) {
-    return COLORS[index % COLORS.length];
+    const palette =
+      document.documentElement.dataset.theme === "dark" ? DARK_COLORS : COLORS;
+    return palette[index % palette.length];
+  }
+
+  function canvasColor(variable) {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(variable)
+      .trim();
   }
 
   function totalWeight() {
@@ -114,19 +186,20 @@
     if (count === 0) {
       context.beginPath();
       context.arc(0, 0, radius, 0, TAU);
-      context.fillStyle = "#edf2ed";
+      context.fillStyle = canvasColor("--wheel-empty");
       context.fill();
       context.setLineDash([5, 8]);
       context.lineWidth = 2;
-      context.strokeStyle = "#c9d6cc";
+      context.strokeStyle = canvasColor("--wheel-empty-border");
       context.stroke();
       context.setLineDash([]);
-      context.fillStyle = "#82958a";
+      context.fillStyle = canvasColor("--wheel-empty-text");
       context.font = '600 22px "Noto Sans KR", sans-serif';
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText("후보를 추가해 주세요", 0, 3);
       context.restore();
+      updatePointerOption();
       return;
     }
 
@@ -145,20 +218,29 @@
       context.fillStyle = colorFor(index);
       context.fill();
       context.lineWidth = Math.max(0.5, Math.min(3, radius * slice * 0.12));
-      context.strokeStyle = "#fff";
+      context.strokeStyle =
+        document.documentElement.dataset.theme === "dark" ? "#202c24" : "#fff";
       context.stroke();
 
-      if (slice >= 0.12) {
+      if (slice >= 0.035) {
         const middle = start + slice / 2;
         context.save();
         context.rotate(middle);
         context.translate(radius * 0.62, 0);
         if (Math.cos(middle) < 0) context.rotate(Math.PI);
-        context.fillStyle = TEXT_COLORS[index % TEXT_COLORS.length];
+        const textPalette =
+          document.documentElement.dataset.theme === "dark"
+            ? DARK_TEXT_COLORS
+            : TEXT_COLORS;
+        context.fillStyle = textPalette[index % textPalette.length];
         context.textAlign = "center";
         context.textBaseline = "middle";
-        const maxTextWidth = Math.max(32, radius * Math.min(0.75, slice * 0.8));
-        const fontSize = Math.max(11, Math.min(22, 15 + (count <= 4 ? 2 : 0)));
+        const maxTextWidth = Math.max(24, radius * 0.72);
+        const baselineSlice = TAU / 4;
+        const fontSize = Math.max(
+          8,
+          Math.min(30, 28 * Math.sqrt(slice / baselineSlice)),
+        );
         context.font = `700 ${fontSize}px "Noto Sans KR", sans-serif`;
         context.fillText(option.name, 0, 0, maxTextWidth);
         context.restore();
@@ -169,9 +251,29 @@
     context.beginPath();
     context.arc(0, 0, radius, 0, TAU);
     context.lineWidth = 5;
-    context.strokeStyle = "#fff";
+    context.strokeStyle =
+      document.documentElement.dataset.theme === "dark" ? "#202c24" : "#fff";
     context.stroke();
     context.restore();
+    updatePointerOption();
+  }
+
+  function updatePointerOption() {
+    if (options.length === 0) {
+      pointerOption.textContent = "후보 대기 중";
+      return;
+    }
+
+    const position = (normalizeAngle(-rotation) / TAU) * totalWeight();
+    let cumulativeWeight = 0;
+    for (const option of options) {
+      cumulativeWeight += option.weight;
+      if (position < cumulativeWeight) {
+        pointerOption.textContent = option.name;
+        return;
+      }
+    }
+    pointerOption.textContent = options[options.length - 1].name;
   }
 
   function updateInterface() {
@@ -313,29 +415,31 @@
     updateInterface();
   }
 
-  function randomIntegerBelow(upperBound) {
+  function randomUnit() {
     if (window.crypto && window.crypto.getRandomValues) {
-      const range = 0x20000000000000;
-      const limit = range - (range % upperBound);
       const randomValues = new Uint32Array(2);
-      let value;
-      do {
-        window.crypto.getRandomValues(randomValues);
-        value = (randomValues[0] & 0x1fffff) * 0x100000000 + randomValues[1];
-      } while (value >= limit);
-      return value % upperBound;
+      window.crypto.getRandomValues(randomValues);
+      const value = (randomValues[0] & 0x1fffff) * 0x100000000 + randomValues[1];
+      return value / 0x20000000000000;
     }
-
-    return Math.floor(Math.random() * upperBound);
+    return Math.random();
   }
 
-  function selectWeightedIndex() {
-    let pick = randomIntegerBelow(totalWeight());
+  function selectWeightedPosition() {
+    let pick = randomUnit() * totalWeight();
+    let precedingWeight = 0;
     for (let index = 0; index < options.length; index += 1) {
-      pick -= options[index].weight;
-      if (pick < 0) return index;
+      const weight = options[index].weight;
+      if (pick < weight) {
+        return { index, position: precedingWeight + pick };
+      }
+      pick -= weight;
+      precedingWeight += weight;
     }
-    return options.length - 1;
+    return {
+      index: options.length - 1,
+      position: totalWeight() - Number.EPSILON,
+    };
   }
 
   function normalizeAngle(angle) {
@@ -345,6 +449,7 @@
   function startWheel() {
     if (spinState !== "idle" || options.length < 2) return;
 
+    hideWheelResult();
     spinState = "spinning";
     lastFrameTime = 0;
     resultMessage.textContent = "";
@@ -368,14 +473,10 @@
   function stopWheel() {
     if (spinState !== "spinning") return;
 
-    const winnerIndex = selectWeightedIndex();
+    const selected = selectWeightedPosition();
+    const winnerIndex = selected.index;
     const weightSum = totalWeight();
-    const precedingWeight = options
-      .slice(0, winnerIndex)
-      .reduce((total, option) => total + option.weight, 0);
-    const desiredRotation = normalizeAngle(
-      -((precedingWeight + options[winnerIndex].weight / 2) / weightSum) * TAU,
-    );
+    const desiredRotation = normalizeAngle(-(selected.position / weightSum) * TAU);
     const currentRotation = normalizeAngle(rotation);
     const alignment = normalizeAngle(desiredRotation - currentRotation);
     const startRotation = rotation;
@@ -403,10 +504,32 @@
       resultMessage.classList.remove("is-result");
       void resultMessage.offsetWidth;
       resultMessage.classList.add("is-result");
+      showWheelResult(options[winnerIndex].name);
       updateInterface();
     }
 
     window.requestAnimationFrame(animate);
+  }
+
+  function hideWheelResult() {
+    window.clearTimeout(resultOverlayTimer);
+    window.clearTimeout(resultOverlayHideTimer);
+    wheelResultOverlay.classList.remove("is-visible");
+    wheelResultOverlay.hidden = true;
+  }
+
+  function showWheelResult(name) {
+    wheelResultName.textContent = name;
+    wheelResultOverlay.hidden = false;
+    window.requestAnimationFrame(() => {
+      wheelResultOverlay.classList.add("is-visible");
+    });
+    resultOverlayTimer = window.setTimeout(() => {
+      wheelResultOverlay.classList.remove("is-visible");
+      resultOverlayHideTimer = window.setTimeout(() => {
+        wheelResultOverlay.hidden = true;
+      }, 350);
+    }, 2200);
   }
 
   function handleSpinButton() {
@@ -432,6 +555,29 @@
   });
 
   spinButton.addEventListener("click", handleSpinButton);
+  themeToggle.addEventListener("click", () => {
+    const nextTheme =
+      document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(nextTheme);
+    try {
+      window.localStorage.setItem("todays-meal-theme", nextTheme);
+    } catch {
+      showToast("테마를 저장할 수 없어 새로고침하면 라이트 모드로 돌아가요.");
+    }
+  });
+  viewModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.viewMode;
+      applyViewMode(mode);
+      try {
+        window.localStorage.setItem("todays-meal-view-mode", mode);
+      } catch {
+        showToast("화면 모드를 저장할 수 없어요.");
+      }
+    });
+  });
 
+  applyTheme(loadTheme());
+  applyViewMode(loadViewMode());
   updateInterface();
 })();
